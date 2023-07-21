@@ -9,6 +9,10 @@
 
 # COMMAND ----------
 
+!pip install scrapy
+
+# COMMAND ----------
+
 dbutils.library.restartPython()
 
 # COMMAND ----------
@@ -80,12 +84,23 @@ process.start()
 
 # COMMAND ----------
 
+# MAGIC %md 
+# MAGIC
+# MAGIC ### Manual Copy of the data into DBFS volume
+
+# COMMAND ----------
+
 # MAGIC %cp 'nab_attachments' '/dbfs/nab_demo/' --recursive
 # MAGIC %cp 'nab_pages' '/dbfs/nab_demo/' --recursive
 
 # COMMAND ----------
 
 display(dbutils.fs.ls('dbfs:/nab_demo/'))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Evaluate total number of files and attachments
 
 # COMMAND ----------
 
@@ -97,4 +112,48 @@ ls -p '/dbfs/nab_demo/nab_pages/' | grep -v / | wc -l
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC
+# MAGIC A simple python program to crawl a single webpage 
 
+# COMMAND ----------
+
+dbutils.library.restartPython()
+
+# COMMAND ----------
+
+import os
+import scrapy
+from scrapy.linkextractors import LinkExtractor
+from scrapy.crawler import CrawlerProcess
+import os
+import re
+
+
+class CrawlerSpider(scrapy.Spider):
+    name = "crawler"
+    start_urls = ["https://www.nab.com.au"]
+    allowed_domains = ["nab.com.au"]
+
+    def parse(self, response):
+        # Save the current web page's content to an HTML file
+        filename = f"""{response.url.split("/").replace('/', '_')}.html"""
+        print(f'response: {response.url}')
+        print(f'filename is : {filename}')
+
+        with open(filename, "wb") as f:
+            f.write(response.body)
+
+        # Extract hyperlinks and follow them recursively
+        for link in response.css("a::attr(href)").getall():
+          print(link)
+            # yield response.follow(link, callback=self.parse)
+
+
+# Create a new Scrapy Process
+#Run the spider
+process = CrawlerProcess(settings={"LOG_LEVEL":"ERROR"})
+
+# Start the spider
+process.crawl(CrawlerSpider)
+process.start()
